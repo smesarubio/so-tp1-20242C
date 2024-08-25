@@ -1,0 +1,2 @@
+68b329da9893e34099c7d8ad5cb9c940  carpeta/file
+1c1c96fd2cf8330db0bfa936ce82f3b9  carpeta/file2

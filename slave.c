@@ -1,3 +1,5 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
@@ -5,8 +7,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include "pipes.h"
+#include "utils.h"
+
 int main(int argc, char const *argv[])
 {
+    while (1)
+    {
+        /* code */
+    }
+
     char buf[200];
     char command[200];
     sprintf(command, "md5sum %s", argv[0]);

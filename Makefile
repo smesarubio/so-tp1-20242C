@@ -1,4 +1,4 @@
-all: slave app view
+all: slave app
 
 slave: slave.c
 	gcc -Wall slave.c -o slave -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500

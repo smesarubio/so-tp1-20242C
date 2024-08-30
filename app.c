@@ -34,54 +34,14 @@ int main(int argc, char const *argv[])
     create_results(&results);
     send_files_to_slaves(files_qty, slaves_qty, app_to_slave_pipes, argv);
 
+
+
     for(int i = 0; i< slaves_qty;i++){
         if(waitpid(slave_pids[i], NULL, 0)==-1){
             perror("waitpid");
             exit(EXIT_FAILURE);
         }
     }
-
-    // for (int i = 1; i < argc; i++)
-    // {
-    //     int fd[2];
-    //     if (pipe(fd) == -1)
-    //     {
-    //         perror("pipe");
-    //         return -1;
-    //     }
-
-    //     int pid = fork();
-
-
-    //     if(pid < 0 ){
-    //         perror("fork");
-    //         exit(EXIT_FAILURE);
-    //     }
-
-    //     if (pid == 0)
-    //     {
-    //         puts(argv[i]);
-    //         const char *args[] = {argv[i], NULL};
-    //         execv("./slave", (char *const *)args);
-    //         perror("execv");
-    //     }
-
-    //     else
-    //     { // codigo padre
-
-    //         waitpid(pid, NULL, 0);
-    //         puts("done");
-    //     }
-    // }
-
-
-    // char buf[200];
-
-    // FILE * fp = popen("md5sum carpeta/file", "r");
-    // fgets(buf,200,fp);
-    // buf[strlen(buf)] = '\0';
-    // pclose(fp);
-    // puts(buf);
     return 0;
 }
 

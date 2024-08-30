@@ -10,21 +10,34 @@
 #include "pipes.h"
 #include "utils.h"
 
+
 int main(int argc, char const *argv[])
 {
-    while (1)
+    int ready = 1;
+    char filename[BUFFER_SIZE];
+    while (ready>0)
     {
-        /* code */
+        ready = read_pipe(STDIN_FILENO, filename);
+        char buf[BUFFER_SIZE];
+        char command[BUFFER_SIZE];
+        char result[BUFFER_SIZE];
+        sprintf(command, "md5sum %s", filename);
+        FILE *fp = popen(command, "r");
+        if(fp == NULL){
+            perror("popen");
+            exit(EXIT_FAILURE);
+        }
+
+        fgets(buf, BUFFER_SIZE, fp);
+        buf[strlen(buf) + 1] = '\0';
+        pclose(fp);
+        sprintf(result, "%d %s", getpid(), buf);
+        write_pipe(1, result);
+
     }
 
-    char buf[200];
-    char command[200];
-    sprintf(command, "md5sum %s", argv[0]);
-    FILE *fp = popen(command, "r");
-    fgets(buf, 200, fp);
-    pclose(fp);
-    FILE * file = fopen("result.txt", "a"); //mal debe de volver a app.
-    fprintf(file, buf);
-    fclose(file);
+    close(STDOUT_FILENO);
+
+    exit(EXIT_SUCCESS);
     return 0;
 }

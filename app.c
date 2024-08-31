@@ -6,6 +6,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include "utils.h"
+#include "pipes.h"
+#include <sys/select.h>
 
 
 void init_slaves(int qty, int pids[]);
@@ -13,6 +16,7 @@ void init_pipes(int qty, int pipes[][2]);
 void init_slave_to_app_pipes(int qty, int pipes[][2]);
 void create_results(FILE ** file);
 void send_files_to_slaves(int files_qty, int slaves_qty, int app_to_slave_pipes[][2], char const *argv[]);
+void read_from_slaves(int slaves_qty, int slave_to_app_pipes[][2], FILE * results);
 
 int main(int argc, char const *argv[])
 {
@@ -23,17 +27,24 @@ int main(int argc, char const *argv[])
     }
     int files_qty = argc - 1;
     int slaves_qty = files_qty/10 + 1;
-
+    printf("cantidad de archivos: %d\n", files_qty);
+    printf("cantidad de argumentos: %d\n", argc);
+    printf("cantidad de esclavos: %d\n", slaves_qty);
     int slave_pids[slaves_qty];
     init_slaves(slaves_qty, slave_pids);
     int app_to_slave_pipes[slaves_qty][2];
     int slave_to_app_pipes[slaves_qty][2];
     init_pipes(slaves_qty, app_to_slave_pipes);
     init_pipes(slaves_qty, slave_to_app_pipes);
-    FILE * results = NULL;
-    create_results(&results);
+    FILE * results = fopen("result.txt", "a");
+    if(results == NULL){
+        perror("fopen");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(results, "N° -- Slave PID -- MD5 -- Filename\n");
     send_files_to_slaves(files_qty, slaves_qty, app_to_slave_pipes, argv);
 
+    read_from_slaves(slaves_qty, slave_to_app_pipes, results);
 
 
     for(int i = 0; i< slaves_qty;i++){
@@ -45,25 +56,63 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-void send_files_to_slaves(int files_qty, int slaves_qty, int app_to_slave_pipes[][2], char const *argv[]){
-    int n = files_qty<slaves_qty?files_qty:slaves_qty;
+void read_from_slaves(int slaves_qty, int slave_to_app_pipes[][2], FILE *results) {
+    fd_set readfds;
+    int max_fd = -1;
+    char buffer[BUFFER_SIZE * 2];
+    int active_slaves = slaves_qty;
 
-    for (int i = 0; i < n; i++)
-    {
-        int slave = i % slaves_qty;
-        write(app_to_slave_pipes[slave][1], argv[i+1], strlen(argv[i+1]));
-        write(app_to_slave_pipes[slave][1], "\n", 1);
+    while (active_slaves > 0) {
+        FD_ZERO(&readfds);
+        max_fd = -1;
+
+        for (int i = 0; i < slaves_qty; i++) {
+            if (slave_to_app_pipes[i][0] != -1) {
+                FD_SET(slave_to_app_pipes[i][0], &readfds);
+                if (slave_to_app_pipes[i][0] > max_fd) {
+                    max_fd = slave_to_app_pipes[i][0];
+                }
+            }
+        }
+
+        if (select(max_fd + 1, &readfds, NULL, NULL, NULL) == -1) {
+            perror("select");
+            exit(EXIT_FAILURE);
+        }
+
+        for (int i = 0; i < slaves_qty; i++) {
+            if (slave_to_app_pipes[i][0] != -1 && FD_ISSET(slave_to_app_pipes[i][0], &readfds)) {
+                ssize_t bytes_read = read(slave_to_app_pipes[i][0], buffer, sizeof(buffer) - 1);
+                if (bytes_read > 0) {
+                    buffer[bytes_read] = '\0';
+                    fprintf(results, "%s", buffer);
+                    fflush(results);
+                } else if (bytes_read == 0) {
+                    close(slave_to_app_pipes[i][0]);
+                    slave_to_app_pipes[i][0] = -1;
+                    active_slaves--;
+                } else {
+                    perror("read");
+                }
+            }
+        }
+    }
+}
+
+void send_files_to_slaves(int files_qty, int slaves_qty, int app_to_slave_pipes[][2], char const *argv[]) {
+    for (int i = 1; i <= files_qty; i++) {
+        int slave = (i - 1) % slaves_qty;
+        write_pipe(argv[i]);
     }
 
+    // Close write ends of pipes to signal end of input
+    for (int i = 0; i < slaves_qty; i++) {
+        close(app_to_slave_pipes[i][1]);
+    }
 }
 
 void create_results(FILE ** file){
-    * file = fopen("result.txt", "a");
-    if(file == NULL){
-        perror("fopen");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(*file, "N° -- Slave PID -- MD5 -- Filename\n");
+
     return;
 }
 

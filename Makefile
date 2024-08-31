@@ -1,10 +1,10 @@
 all: slave app
 
 slave: slave.c
-	gcc -Wall slave.c -o slave -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500
+	gcc -Wall slave.c pipes.c -o slave -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500
 
 app: app.c
-	gcc -Wall app.c -o md5 -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500
+	gcc -Wall app.c pipes.c -o md5 -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500
 
 view: view.c pipes.c
 	gcc -Wall view.c pipes.c -o view -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500

@@ -10,6 +10,7 @@
 #include "pipes.h"
 #include <sys/select.h>
 
+//app
 
 void init_slaves(int qty, int pids[]);
 void init_pipes(int qty, int pipes[][2]);

@@ -12,19 +12,34 @@
 
 int main(int argc, char const *argv[])
 {
-    while (1)
-    {
-        /* code */
-    }
-
+    char result[1024];
+    char filename[200];
     char buf[200];
     char command[200];
-    sprintf(command, "md5sum %s", argv[0]);
-    FILE *fp = popen(command, "r");
-    fgets(buf, 200, fp);
-    pclose(fp);
-    FILE * file = fopen("result.txt", "a"); //mal debe de volver a app.
-    fprintf(file, buf);
-    fclose(file);
+    int ready = 1;
+    while (ready>0) {
+
+        ready = read_pipe(STDIN_FILENO, filename);
+        if(ready==-1){
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+        sprintf(command, "md5sum %s", argv[0]);
+        FILE *fp = popen(command, "r");
+        if(fp == NULL){
+            perror("popen");
+            exit(EXIT_FAILURE);
+        }
+        fgets(buf, 200, fp);
+        buf[strlen(buf)] = '\0';
+
+        pclose(fp);
+
+        sprintf(result, "%d %s", getpid(), buf);
+        write_pipe(FILEDESC_WRITE, result);
+    }
+
+    close(STDOUT_FILENO);
+    exit(EXIT_SUCCESS);
     return 0;
 }

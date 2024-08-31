@@ -5,9 +5,9 @@
 #include "pipes.h"
 #include "utils.h"
 
-
 int main(int argc, char const *argv[])
 {
+<<<<<<< HEAD
     char filename[BUFFER_SIZE];
     char result[BUFFER_SIZE];
     int file_count = 0;

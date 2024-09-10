@@ -7,10 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-void read_from_slaves(int qty, int slave_to_app_pipes[][2], FILE *results);
+void read_from_slaves(int files_qty,int slaves_qty, int slave_to_app_pipes[][2], FILE *results) ;
+laves(int qty, int slave_to_app_pipes[][2], FILE *results);
 void set_pipe_env(int qty, int app_to_slave_pipes[][2],
                   int slave_to_app_pipes[][2]);
 void close_pipes(int app_to_slave_pipes[][2], int slave_to_app_pipes[][2],
@@ -39,13 +41,14 @@ int main(int argc, char const *argv[]) {
   FILE *results = NULL;
   create_results(&results);
   send_files_to_slaves(files_qty, slaves_qty, app_to_slave_pipes, argv);
+  read_from_slaves(files_qty, slaves_qty, slave_to_app_pipes, results);
 
 
-  for (int j= 0 , i = 0; i < slaves_qty ; i++) {
-    char buf[1024];
-    read(slave_to_app_pipes[i][FD_READ], buf, 1024 - 1);
-    puts(buf);
-  }
+  // for (int i = 0; i < slaves_qty ; i++) {
+  //   char buf[1024];
+  //   read(slave_to_app_pipes[i][FD_READ], buf, 1024 - 1);
+  //   puts(buf);
+  // }
 
   // for(int i = 0; i< slaves_qty;i++){
   //     if(waitpid(slave_pids[i], NULL, 0)==-1){
@@ -57,31 +60,55 @@ int main(int argc, char const *argv[]) {
   return 0;
 }
 
-void read_from_slaves(int qty, int slave_to_app_pipes[][2], FILE *results) {
-  for (int i = 0; i < qty; i++) {
-    int ready = 1;
-    while (ready > 0) {
-        char buf[1024];
-        ready = read(slave_to_app_pipes[i][FD_READ], buf, 1024 - 1);
-        puts(buf);
+void read_from_slaves(int files_qty,int slaves_qty, int slave_to_app_pipes[][2], FILE *results) {
+    int retval;
+    fd_set rfds;
+    size_t recieved = 0;
+    while (recieved < files_qty) {
+      int max_fd = 0;
+      FD_ZERO(&rfds);
+      for (int i = 0; i < slaves_qty; i++) {
+        FD_SET(slave_to_app_pipes[i][FD_READ], &rfds);
+        if (slave_to_app_pipes[i][FD_READ] > max_fd) {
+          max_fd = slave_to_app_pipes[i][FD_READ];
+        }
+      }
+      if (select(max_fd + 1, &rfds, NULL, NULL, NULL) == -1) {
+          perror("select");
+      }
+      char buf[1024];
+      char md5[1024];
+      for (int i = 0; i < slaves_qty; i++) {
+          if (FD_ISSET(slave_to_app_pipes[i][FD_READ], &rfds)) {
+              int read_bytes;
+              if ((read_bytes = read(slave_to_app_pipes[i][FD_READ], buf, 1024 - 1)) == -1) {
+                  perror("read");
+              }
+              buf[read_bytes] = '\0';
+              puts(buf);
+              recieved++;
+          }
+      }
     }
-  }
 }
 
 void send_files_to_slaves(int files_qty, int slaves_qty,
                           int app_to_slave_pipes[][2], char const *argv[]) {
   int n = files_qty < slaves_qty ? files_qty : slaves_qty;
 
-  for (int i = 0; i < n; i++) {
+  for (int i = 0; i < files_qty; i++) {
     int slave = i % slaves_qty;
-    //write_pipe(app_to_slave_pipes[slave][1], argv[i + 1]);
 
-    if (write(app_to_slave_pipes[slave][FD_WRITE], argv[i+1], strlen(argv[i+1])) == -1) {
-        perror("Failed to send paths to slave process");
+    printf("Sending file %s to slave %d\n", argv[i + 1], slave);
+
+    // Write the file path to the pipe for the slave
+    if (write(app_to_slave_pipes[slave][FD_WRITE], argv[i + 1], strlen(argv[i + 1])) == -1) {
+      perror("Failed to send paths to slave process");
     }
 
-    if (write(app_to_slave_pipes[i][FD_WRITE], "\n", 1) == -1) {
-        perror("Failed to send paths to slave process");
+    // Write a newline character after each file path
+    if (write(app_to_slave_pipes[slave][FD_WRITE], "\n", 1) == -1) {
+      perror("Failed to send newline to slave process");
     }
   }
 }
@@ -169,18 +196,4 @@ void close_pipes(int app_to_slave_pipes[][2], int slave_to_app_pipes[][2],
   }
   close(app_to_slave_pipes[i][FILEDESC_WRITE]);
   close(slave_to_app_pipes[i][FILEDESC_READ]);
-}
-
-void set_pipe_env(int qty, int app_to_slave_pipes[][2],
-                  int slave_to_app_pipes[][2]) {
-  for (int i = 0; i < qty; i++) {
-    close(app_to_slave_pipes[i][FILEDESC_WRITE]);
-    close(slave_to_app_pipes[i][FILEDESC_READ]);
-
-    dup2(app_to_slave_pipes[i][FILEDESC_READ], STDIN_FILENO);
-    close(app_to_slave_pipes[i][FILEDESC_READ]);
-
-    dup2(slave_to_app_pipes[i][FILEDESC_WRITE], STDOUT_FILENO);
-    close(slave_to_app_pipes[i][FILEDESC_WRITE]);
-  }
 }

@@ -10,7 +10,6 @@ int read_pipe(int fd, char *buffer) {
 
     for (i = 0; i < MAX_PATH && current_char[0] != 0; i++) {
         int result = read(fd, current_char, 1);
-
         if (result == -1) {
             perror("read");
             return -1;

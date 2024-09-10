@@ -1,6 +1,7 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
 #include <stddef.h>
@@ -12,34 +13,34 @@
 
 int main(int argc, char const *argv[])
 {
-    char result[1024];
-    char filename[200];
-    char buf[200];
-    char command[200];
-    int ready = 1;
-    while (ready>0) {
 
-        ready = read_pipe(STDIN_FILENO, filename);
-        if(ready==-1){
-            perror("read");
-            exit(EXIT_FAILURE);
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    char *filename;
+    size_t linecapp = 0;
+    int read_bytes = 1;
+
+    while ((read_bytes = getline(&filename, &linecapp, stdin)) >=0) {
+        if(filename[read_bytes-1]=='\n'){
+            filename[read_bytes-1] = 0;
         }
-        sprintf(command, "md5sum %s", argv[0]);
+        char command[strlen(filename) + strlen("md5sum") + 2];
+        sprintf(command, "md5sum %s", filename);
+
         FILE *fp = popen(command, "r");
         if(fp == NULL){
             perror("popen");
             exit(EXIT_FAILURE);
         }
-        fgets(buf, 200, fp);
-        buf[strlen(buf)] = '\0';
-
+        char result[50];
+        if(fscanf(fp, "%32s", result)!=1){
+            perror("fprintf");
+            exit(EXIT_FAILURE);
+        }
         pclose(fp);
-
-        sprintf(result, "%d %s", getpid(), buf);
-        write_pipe(FILEDESC_WRITE, result);
+        printf("%d %s %s\n", getpid(), result, filename);
     }
-
-    close(STDOUT_FILENO);
+    free(filename);
     exit(EXIT_SUCCESS);
     return 0;
 }

@@ -49,6 +49,7 @@ int main(int argc, char const *argv[])
     }
 
     // Free the filename buffer at the end
+
     free(filename);
     exit(EXIT_SUCCESS);
 }

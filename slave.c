@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stddef.h>
 #include <unistd.h>
-#include "pipes.h"
 #include "utils.h"
 
 int main(int argc, char const *argv[])

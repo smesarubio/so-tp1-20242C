@@ -1,6 +1,5 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
-#include "pipes.h"
 #include "utils.h"
 #include <fcntl.h>
 #include <semaphore.h>
@@ -13,7 +12,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void close_pipes(int qty, int app_to_slave_pipes[][2], int slave_to_app_pipes[][2]);
+void close_pipes(int qty, int app_to_slave_pipes[][2],
+                 int slave_to_app_pipes[][2]);
 void manage_dynamic_file_sending(int files_qty, int slaves_qty,
                                  int app_to_slave_pipes[][2],
                                  int slave_to_app_pipes[][2],
@@ -41,7 +41,7 @@ int main(int argc, char const *argv[]) {
   view_on = wait_view();
   char *map_result;
   int shm_fd;
-  if(view_on == 1){
+  if (view_on == 1) {
     shm_fd = shm_init(&map_result);
   }
 
@@ -56,13 +56,19 @@ int main(int argc, char const *argv[]) {
   send_initial_files(files_qty, slaves_qty, app_to_slave_pipes, argv);
   manage_dynamic_file_sending(files_qty, slaves_qty, app_to_slave_pipes,
                               slave_to_app_pipes, argv, results, sem, shm_fd);
-
   close_pipes(slaves_qty, app_to_slave_pipes, slave_to_app_pipes);
+  if (view_on) {
+    munmap(map_result, BUFFER_SIZE);
+    close(shm_fd);
+    shm_unlink(SHM_NAME);
+  }
+  sem_close(sem);
+  sem_unlink(SEM_NAME);
   return 0;
 }
 
-
-void close_pipes(int qty, int app_to_slave_pipes[][2], int slave_to_app_pipes[][2]) {
+void close_pipes(int qty, int app_to_slave_pipes[][2],
+                 int slave_to_app_pipes[][2]) {
   for (int i = 0; i < qty; i++) {
     close(app_to_slave_pipes[i][FD_READ]);
     close(slave_to_app_pipes[i][FD_WRITE]);
@@ -139,7 +145,7 @@ void manage_dynamic_file_sending(int files_qty, int slaves_qty,
         int read_bytes = read(slave_to_app_pipes[i][FD_READ], buf, 1024 - 1);
         if (read_bytes > 0) {
           buf[read_bytes] = '\0';
-          if(view_on){
+          if (view_on) {
             write(shm_fd, buf, strlen(buf));
           }
           // Escribir el resultado en el archivo

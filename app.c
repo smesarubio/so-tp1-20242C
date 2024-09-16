@@ -1,5 +1,6 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include "utils.h"
 #include <fcntl.h>
 #include <semaphore.h>
@@ -40,7 +41,7 @@ int main(int argc, char const *argv[]) {
   }
   view_on = wait_view();
   char *map_result;
-  int shm_fd;
+  int shm_fd = 0;
   if (view_on == 1) {
     shm_fd = shm_init(&map_result);
   }
@@ -54,8 +55,7 @@ int main(int argc, char const *argv[]) {
   FILE *results = NULL;
   create_results(&results);
   send_initial_files(files_qty, slaves_qty, app_to_slave_pipes, argv);
-  manage_dynamic_file_sending(files_qty, slaves_qty, app_to_slave_pipes,
-                              slave_to_app_pipes, argv, results, sem, shm_fd);
+  manage_dynamic_file_sending(files_qty, slaves_qty, app_to_slave_pipes,slave_to_app_pipes, argv, results, sem, shm_fd);
   close_pipes(slaves_qty, app_to_slave_pipes, slave_to_app_pipes);
   if (view_on) {
     munmap(map_result, BUFFER_SIZE);
@@ -177,7 +177,7 @@ void manage_dynamic_file_sending(int files_qty, int slaves_qty,
 
 void create_results(FILE **file) {
   *file = fopen("result.txt", "w");
-  if (file == NULL) {
+  if (*file == NULL) {
     perror("fopen");
     exit(EXIT_FAILURE);
   }

@@ -28,6 +28,7 @@ void create_results(FILE **file);
 int shm_init(char **map_result);
 int wait_view();
 
+
 int view_on = 0;
 int main(int argc, char const *argv[]) {
   if (argc <= 1) {
@@ -55,7 +56,8 @@ int main(int argc, char const *argv[]) {
   FILE *results = NULL;
   create_results(&results);
   send_initial_files(files_qty, slaves_qty, app_to_slave_pipes, argv);
-  manage_dynamic_file_sending(files_qty, slaves_qty, app_to_slave_pipes,slave_to_app_pipes, argv, results, sem, shm_fd);
+  manage_dynamic_file_sending(files_qty, slaves_qty, app_to_slave_pipes,
+                              slave_to_app_pipes, argv, results, sem, shm_fd);
   close_pipes(slaves_qty, app_to_slave_pipes, slave_to_app_pipes);
   if (view_on) {
     munmap(map_result, BUFFER_SIZE);
@@ -64,6 +66,9 @@ int main(int argc, char const *argv[]) {
   }
   sem_close(sem);
   sem_unlink(SEM_NAME);
+  for(int i = 0; i< slaves_qty; i++){
+    waitpid(slave_pids[i], NULL, 0);
+  }
   return 0;
 }
 
@@ -190,22 +195,46 @@ void init_slaves(int slaveQty, int pids[], int app_to_slave_pipes[][2],
   for (int i = 0; i < slaveQty; i++) {
     if (pipe(app_to_slave_pipes[i]) != 0 || pipe(slave_to_app_pipes[i]) != 0) {
       perror("Failed to create pipes");
+      exit(EXIT_FAILURE);
     }
+
     pids[i] = fork();
     if (pids[i] == 0) {
-      close(app_to_slave_pipes[i][FD_WRITE]);
-      dup2(app_to_slave_pipes[i][FD_READ], STDIN_FILENO);
+      // Child process (slave)
+      for (int j = 0; j < slaveQty; j++) {
+        if (j != i) {
+          close(app_to_slave_pipes[j][0]);
+          close(app_to_slave_pipes[j][1]);
+          close(slave_to_app_pipes[j][0]);
+          close(slave_to_app_pipes[j][1]);
+        }
+      }
 
+      // Close unused ends of the pipes for this slave
+      close(app_to_slave_pipes[i][FD_WRITE]);
       close(slave_to_app_pipes[i][FD_READ]);
+
+      // Redirect stdin and stdout
+      dup2(app_to_slave_pipes[i][FD_READ], STDIN_FILENO);
       dup2(slave_to_app_pipes[i][FD_WRITE], STDOUT_FILENO);
 
-      execv("slave", (char *[]){"./slave", NULL});
-    } else if (pids[i] > 0) {
-      close(slave_to_app_pipes[i][FD_WRITE]);
+      // Close the original file descriptors
       close(app_to_slave_pipes[i][FD_READ]);
-    } else {
+      close(slave_to_app_pipes[i][FD_WRITE]);
+
+      execv("slave", (char *[]){"./slave", NULL});
+      perror("execv"); // This line is reached only if execv fails
+      exit(EXIT_FAILURE);
+    } else if (pids[i] < 0) {
       perror("Error in fork");
+      exit(EXIT_FAILURE);
     }
+  }
+
+  // Parent process
+  for (int i = 0; i < slaveQty; i++) {
+    close(app_to_slave_pipes[i][FD_READ]);
+    close(slave_to_app_pipes[i][FD_WRITE]);
   }
 }
 
